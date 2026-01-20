@@ -1,0 +1,349 @@
+# BRAMKA AI - Main Configuration File
+# Version: 1.0.0
+
+# ============================================================================
+# PROJECT INFO
+# ============================================================================
+project:
+  name: "BRAMKA AI"
+  version: "1.0.0"
+  description: "Autonomous AI-Powered Penetration Testing Assistant"
+  author: "Your Name"
+
+# ============================================================================
+# LLM CONFIGURATION
+# ============================================================================
+llm:
+  primary:
+    provider: "groq"
+    model: "llama-3.1-70b-versatile"
+    temperature: 0.7
+    max_tokens: 4096
+    timeout: 60
+    retry_attempts: 3
+    retry_delay: 2
+  
+  backup:
+    provider: "ollama"
+    model: "llama3.2:3b"
+    temperature: 0.7
+    max_tokens: 2048
+    base_url: "http://localhost:11434"
+  
+  settings:
+    use_backup_on_failure: true
+    cache_responses: true
+    streaming: false
+
+# ============================================================================
+# VOICE INTERFACE
+# ============================================================================
+voice:
+  enabled: true
+  
+  speech_to_text:
+    engine: "whisper"  # whisper, google, sphinx
+    model: "base"  # tiny, base, small, medium, large
+    language: "en"
+    detect_tanglish: true
+    tanglish_keywords:
+      - "da"
+      - "pa"
+      - "panu"
+      - "panniten"
+      - "ha"
+  
+  text_to_speech:
+    engine: "gtts"  # gtts, pyttsx3, piper
+    language: "en"
+    speed: 1.0
+    volume: 0.8
+  
+  wake_word:
+    enabled: false
+    word: "bramka"
+    sensitivity: 0.5
+
+# ============================================================================
+# DATABASE CONFIGURATION
+# ============================================================================
+database:
+  chromadb:
+    persist_directory: "./data/vector_db"
+    collection_name: "bramka_knowledge"
+    embedding_function: "default"
+    distance_metric: "cosine"
+  
+  sqlite:
+    database_path: "./data/sqlite/bramka.db"
+    tables:
+      - attacks
+      - tools
+      - targets
+      - credentials
+      - metrics
+    
+    connection:
+      check_same_thread: false
+      timeout: 10
+      isolation_level: null
+
+# ============================================================================
+# MODULE 1: ATTACK ORCHESTRATOR
+# ============================================================================
+attack_orchestrator:
+  reconnaissance:
+    tools:
+      - nmap
+      - masscan
+      - amass
+    
+    nmap:
+      default_args: "-sV -T4"
+      aggressive_args: "-A -T4"
+      stealth_args: "-sS -T2"
+      timeout: 300
+    
+    osint:
+      enabled: true
+      sources:
+        - "shodan"
+        - "censys"
+        - "builtwith"
+  
+  exploitation:
+    tools:
+      - sqlmap
+      - xsstrike
+      - commix
+    
+    sqlmap:
+      default_args: "--batch --random-agent"
+      timeout: 600
+      risk: 1
+      level: 1
+    
+    xss:
+      payloads_file: "./data/payloads/xss.txt"
+      timeout: 30
+    
+    safety:
+      confirm_before_exploit: false
+      max_concurrent_attacks: 3
+      rate_limit_delay: 1
+  
+  payload_generation:
+    reverse_shells:
+      lhost: "0.0.0.0"
+      lport: 4444
+      types:
+        - bash
+        - python
+        - powershell
+        - php
+    
+    malware:
+      obfuscation: true
+      encoding: "base64"
+      evasion_techniques:
+        - string_obfuscation
+        - anti_vm
+        - anti_debug
+
+# ============================================================================
+# MODULE 2: AUTONOMOUS TOOL MANAGER
+# ============================================================================
+tool_manager:
+  discovery:
+    enabled: true
+    sources:
+      - github
+      - gitlab
+      - tool_databases
+    
+    github:
+      min_stars: 100
+      max_age_days: 365
+      languages:
+        - python
+        - bash
+        - go
+    
+    validation:
+      check_reputation: true
+      scan_for_malware: true
+      verify_signatures: false
+  
+  installation:
+    auto_install: true
+    install_path: "./data/downloads/tools"
+    methods:
+      - git_clone
+      - pip_install
+      - apt_install
+      - manual_download
+    
+    safety:
+      sandbox_test: true
+      require_confirmation: false
+      backup_before_install: true
+  
+  learning:
+    methods:
+      - readme_analysis
+      - help_parsing
+      - tutorial_search
+      - trial_error
+    
+    knowledge_retention:
+      store_successful_commands: true
+      track_failure_patterns: true
+      update_on_new_version: true
+  
+  execution:
+    timeout: 300
+    retry_on_failure: true
+    max_retries: 3
+    log_all_commands: true
+
+# ============================================================================
+# MODULE 3: INTELLIGENCE ENGINE
+# ============================================================================
+intelligence_engine:
+  memory:
+    enabled: true
+    store_all_attacks: true
+    retention_days: 365
+    max_entries: 10000
+  
+  pattern_recognition:
+    enabled: true
+    min_sample_size: 5
+    confidence_threshold: 0.7
+    update_frequency: "daily"
+  
+  strategy_evolution:
+    enabled: true
+    learning_rate: 0.1
+    exploration_rate: 0.2
+    reward_system:
+      success: 1.0
+      partial_success: 0.5
+      failure: -0.5
+  
+  threat_intelligence:
+    cve_monitoring: true
+    exploit_db_sync: true
+    update_frequency: "daily"
+
+# ============================================================================
+# MODULE 4: REPORTING
+# ============================================================================
+reporting:
+  dashboard:
+    enabled: true
+    host: "127.0.0.1"
+    port: 8501
+    theme: "dark"
+    refresh_interval: 5
+  
+  report_generation:
+    auto_generate: true
+    formats:
+      - pdf
+      - html
+      - json
+    
+    output_directory: "./data/reports"
+    
+    sections:
+      - executive_summary
+      - technical_details
+      - vulnerabilities_found
+      - exploitation_proofs
+      - remediation_advice
+      - appendix
+  
+  visualization:
+    charts:
+      - attack_timeline
+      - success_rate
+      - tool_usage
+      - target_topology
+    
+    export_charts: true
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  
+  files:
+    main_log: "./data/logs/bramka.log"
+    error_log: "./data/logs/errors.log"
+    attack_log: "./data/logs/attacks.log"
+    audit_log: "./data/logs/audit.log"
+  
+  rotation:
+    max_bytes: 10485760  # 10MB
+    backup_count: 5
+  
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
+  
+  console_output: true
+  colorize: true
+
+# ============================================================================
+# SECURITY
+# ============================================================================
+security:
+  api:
+    enabled: true
+    host: "127.0.0.1"
+    port: 8000
+    cors_enabled: false
+    rate_limiting:
+      enabled: true
+      max_requests: 100
+      window_seconds: 60
+  
+  authentication:
+    enabled: false  # Set to true for production
+    method: "token"  # token, basic, oauth
+    token_expiry: 3600
+  
+  encryption:
+    encrypt_credentials: true
+    encryption_key_path: "./data/.encryption_key"
+    algorithm: "fernet"
+
+# ============================================================================
+# PERFORMANCE
+# ============================================================================
+performance:
+  max_workers: 4
+  thread_pool_size: 10
+  process_pool_size: 4
+  
+  cache:
+    enabled: true
+    max_size: 1000
+    ttl: 3600
+  
+  rate_limiting:
+    requests_per_second: 10
+    burst_size: 20
+
+# ============================================================================
+# ETHICAL USE
+# ============================================================================
+ethical_use:
+  disclaimer_shown: true
+  require_acknowledgment: true
+  log_all_activities: true
+  
+  restrictions:
+    block_unauthorized_targets: false
+    warn_on_dangerous_commands: true
+    require_confirmation_for_exploits: false
