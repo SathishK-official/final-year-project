@@ -191,13 +191,13 @@ def test_groq_api():
         # Test with minimal request
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": "Say 'OK' if you can hear me"}],
-            model="llama-3.1-70b-versatile",
+            model="llama-3.3-70b-versatile",
             max_tokens=10,
         )
         
         if response.choices[0].message.content:
             print("   ✅ Groq API Connection......... OK")
-            print(f"   ℹ️  Model: llama-3.1-70b-versatile")
+            print(f"   ℹ️  Model: llama-3.3-70b-versatile")
             return True
         
     except Exception as e:
