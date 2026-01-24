@@ -6,19 +6,20 @@ Manages vector database for tool knowledge and attack patterns
 from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.config import Settings
-from loguru import logger
+
+from src.utils.logger import get_logger
+from src.utils.config_loader import get_config
+
 
 class ChromaDBManager:
     """Manages ChromaDB vector database operations"""
     
-    def __init__(self, persist_directory: str = "./data/vector_db"):
-        """
-        Initialize ChromaDB client
+    def __init__(self):
+        """Initialize ChromaDB client"""
+        self.logger = get_logger("ChromaDBManager")
+        self.config = get_config()
         
-        Args:
-            persist_directory: Directory to persist vector database
-        """
-        self.persist_directory = persist_directory
+        persist_directory = self.config.get("database.chromadb.persist_directory", "./data/vector_db")
         
         # Initialize persistent client
         self.client = chromadb.PersistentClient(
@@ -33,10 +34,11 @@ class ChromaDBManager:
         self.tool_knowledge = None
         self.attack_patterns = None
         self.exploit_db = None
+        self.interactions = None
         
         self._initialize_collections()
         
-        logger.info(f"ChromaDB initialized at {persist_directory}")
+        self.logger.info(f"✅ ChromaDB initialized at {persist_directory}")
     
     def _initialize_collections(self):
         """Initialize or get existing collections"""
@@ -59,10 +61,63 @@ class ChromaDBManager:
                 metadata={"description": "Known exploits and CVEs"}
             )
             
-            logger.info("✅ ChromaDB collections initialized")
+            # Interactions collection (for agent memory)
+            self.interactions = self.client.get_or_create_collection(
+                name="interactions",
+                metadata={"description": "User interactions and conversations"}
+            )
+            
+            self.logger.info("✅ ChromaDB collections initialized")
             
         except Exception as e:
-            logger.error(f"Error initializing collections: {e}")
+            self.logger.error(f"Error initializing collections: {e}")
+    
+    async def add_memory(
+        self,
+        collection_name: str,
+        text: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Add memory to a collection (for agent interactions)
+        
+        Args:
+            collection_name: Name of collection
+            text: Text to store
+            metadata: Metadata dictionary
+        
+        Returns:
+            Success boolean
+        """
+        try:
+            # Get collection
+            if collection_name == "interactions":
+                collection = self.interactions
+            elif collection_name == "tool_knowledge":
+                collection = self.tool_knowledge
+            elif collection_name == "attack_patterns":
+                collection = self.attack_patterns
+            else:
+                self.logger.warning(f"Unknown collection: {collection_name}")
+                return False
+            
+            # Generate ID
+            from datetime import datetime
+            memory_id = f"{collection_name}_{datetime.now().timestamp()}"
+            
+            # Add to collection
+            collection.add(
+                documents=[text],
+                metadatas=[metadata] if metadata else [{}],
+                ids=[memory_id]
+            )
+            
+            self.logger.debug(f"💾 Added memory to {collection_name}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error adding memory: {e}")
+            return False
     
     def store_tool_knowledge(
         self,
@@ -107,11 +162,11 @@ class ChromaDBManager:
                 ids=[f"tool_{tool_name}"]
             )
             
-            logger.info(f"✅ Stored knowledge for tool: {tool_name}")
+            self.logger.info(f"✅ Stored knowledge for tool: {tool_name}")
             return True
             
         except Exception as e:
-            logger.error(f"Error storing tool knowledge: {e}")
+            self.logger.error(f"Error storing tool knowledge: {e}")
             return False
     
     def get_tool_knowledge(self, tool_name: str) -> Optional[Dict[str, Any]]:
@@ -136,7 +191,7 @@ class ChromaDBManager:
             return None
             
         except Exception as e:
-            logger.error(f"Error retrieving tool knowledge: {e}")
+            self.logger.error(f"Error retrieving tool knowledge: {e}")
             return None
     
     def search_similar_tools(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
@@ -168,7 +223,7 @@ class ChromaDBManager:
             return tools
             
         except Exception as e:
-            logger.error(f"Error searching tools: {e}")
+            self.logger.error(f"Error searching tools: {e}")
             return []
     
     def store_attack_pattern(
@@ -208,11 +263,11 @@ class ChromaDBManager:
                 ids=[f"attack_{attack_id}"]
             )
             
-            logger.info(f"✅ Stored attack pattern: {attack_id}")
+            self.logger.info(f"✅ Stored attack pattern: {attack_id}")
             return True
             
         except Exception as e:
-            logger.error(f"Error storing attack pattern: {e}")
+            self.logger.error(f"Error storing attack pattern: {e}")
             return False
     
     def get_successful_patterns(
@@ -256,82 +311,7 @@ class ChromaDBManager:
             return patterns
             
         except Exception as e:
-            logger.error(f"Error retrieving patterns: {e}")
-            return []
-    
-    def store_exploit(
-        self,
-        cve_id: str,
-        exploit_info: Dict[str, Any]
-    ) -> bool:
-        """
-        Store exploit information
-        
-        Args:
-            cve_id: CVE identifier
-            exploit_info: Exploit details
-        
-        Returns:
-            Success boolean
-        """
-        try:
-            document = f"""
-            CVE: {cve_id}
-            Title: {exploit_info.get('title', 'Unknown')}
-            Description: {exploit_info.get('description', 'Unknown')}
-            Affected Systems: {exploit_info.get('affected_systems', 'Unknown')}
-            Severity: {exploit_info.get('severity', 'Unknown')}
-            """
-            
-            metadata = {
-                'cve_id': cve_id,
-                'severity': exploit_info.get('severity', 'unknown'),
-                'type': exploit_info.get('type', 'unknown')
-            }
-            
-            self.exploit_db.add(
-                documents=[document],
-                metadatas=[metadata],
-                ids=[f"cve_{cve_id}"]
-            )
-            
-            logger.info(f"✅ Stored exploit: {cve_id}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error storing exploit: {e}")
-            return False
-    
-    def search_exploits(self, query: str, n_results: int = 10) -> List[Dict[str, Any]]:
-        """
-        Search for relevant exploits
-        
-        Args:
-            query: Search query (service name, version, etc.)
-            n_results: Number of results
-        
-        Returns:
-            List of relevant exploits
-        """
-        try:
-            results = self.exploit_db.query(
-                query_texts=[query],
-                n_results=n_results
-            )
-            
-            exploits = []
-            if results['documents']:
-                for i, doc in enumerate(results['documents'][0]):
-                    exploits.append({
-                        'document': doc,
-                        'metadata': results['metadatas'][0][i] if results['metadatas'] else {},
-                        'relevance': 1 - results['distances'][0][i] if results['distances'] else 0
-                    })
-            
-            return exploits
-            
-        except Exception as e:
-            logger.error(f"Error searching exploits: {e}")
+            self.logger.error(f"Error retrieving patterns: {e}")
             return []
     
     def get_collection_stats(self) -> Dict[str, int]:
@@ -340,27 +320,13 @@ class ChromaDBManager:
             return {
                 'tool_knowledge_count': self.tool_knowledge.count(),
                 'attack_patterns_count': self.attack_patterns.count(),
-                'exploits_count': self.exploit_db.count()
+                'exploits_count': self.exploit_db.count(),
+                'interactions_count': self.interactions.count()
             }
         except Exception as e:
-            logger.error(f"Error getting stats: {e}")
+            self.logger.error(f"Error getting stats: {e}")
             return {}
     
-    def reset_collection(self, collection_name: str) -> bool:
-        """
-        Reset (clear) a collection
-        
-        Args:
-            collection_name: Name of collection to reset
-        
-        Returns:
-            Success boolean
-        """
-        try:
-            self.client.delete_collection(collection_name)
-            self._initialize_collections()
-            logger.warning(f"⚠️  Collection reset: {collection_name}")
-            return True
-        except Exception as e:
-            logger.error(f"Error resetting collection: {e}")
-            return False
+    def close(self):
+        """Close ChromaDB connection"""
+        self.logger.info("🔒 ChromaDB connection closed")
